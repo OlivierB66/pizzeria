@@ -26,7 +26,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # Config
-ALLOWED_IPS = ['127.0.0.1', '192.168.1.']
+#ALLOWED_IPS = ['127.0.0.1', '192.168.1.']
 
 # --- MODÈLES ---
 
@@ -68,8 +68,20 @@ with app.app_context():
 # Middleware : vérifier IP
 @app.before_request
 def check_ip():
-    ip = request.remote_addr
-    if not any(ip.startswith(allowed) for allowed in ALLOWED_IPS):
+    # Récupérer l'IP réelle (via proxy Render)
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    if ip:
+        ip = ip.split(',')[0].strip()  # Si plusieurs IPs, prendre la première
+    
+    # Récupérer la HOME_IP depuis les variables d'env
+    home_ip = os.getenv('HOME_IP', '')
+    
+    print(f"DEBUG: Client IP = {ip}, HOME_IP = {home_ip}")  # Debug
+    
+    # Vérifie IP locale OU IP publique
+    if not (any(ip.startswith(allowed) for allowed in ['127.0.0.1', '192.168.1.','83.204.197.36']) 
+            or ip.startswith(home_ip)):
+        print(f"DEBUG: Accès refusé pour IP {ip}")
         return jsonify({'erreur': 'Accès non autorisé'}), 403
 
 # --- ROUTES PRINCIPALES ---
