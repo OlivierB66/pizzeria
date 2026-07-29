@@ -138,7 +138,7 @@ def marquer_fait(id):
 def get_config():
     ingredients = Ingredient.query.filter_by(disponible=1).all()
     return jsonify({
-        'bases': ['Base tomate', 'Base crème fraîche'],
+        'bases': ['Base tomate', 'Base crème fraîche', 'Moit-moit'],
         'ingredients': [{
             'id': ing.id, 'nom': ing.nom, 
             'image': ing.image_url, 'color': ing.color
