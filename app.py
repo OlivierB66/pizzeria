@@ -1,50 +1,47 @@
 from flask import Flask, render_template, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
-import psycopg2
-from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
 
 # Config BD
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://localhost/pizzeria_dev')
+DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///pizzas.db')
+if DATABASE_URL.startswith('postgres://'):
+    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
-def get_db():
-    conn = psycopg2.connect(DATABASE_URL)
-    return conn
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
 # Config
 ALLOWED_IPS = ['127.0.0.1', '192.168.1.']
 
-# Initialiser BD
-def init_db():
-    conn = get_db()
-    c = conn.cursor()
+# --- MODÈLES ---
+
+class Commande(db.Model):
+    __tablename__ = 'commandes'
+    id = db.Column(db.Integer, primary_key=True)
+    nom = db.Column(db.String(100))
+    base = db.Column(db.String(100))
+    ingredients = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    statut = db.Column(db.String(50), default='en attente')
+
+class Ingredient(db.Model):
+    __tablename__ = 'ingredients'
+    id = db.Column(db.Integer, primary_key=True)
+    nom = db.Column(db.String(100), unique=True)
+    image_url = db.Column(db.String(500))
+    color = db.Column(db.String(10), default='#FF9800')
+    disponible = db.Column(db.Integer, default=1)
+
+# Créer les tables
+with app.app_context():
+    db.create_all()
     
-    # Table commandes
-    c.execute('''CREATE TABLE IF NOT EXISTS commandes (
-        id SERIAL PRIMARY KEY,
-        nom TEXT,
-        base TEXT,
-        ingredients TEXT,
-        created_at TIMESTAMP,
-        statut TEXT DEFAULT 'en attente'
-    )''')
-    
-    # Table ingrédients
-    c.execute('''CREATE TABLE IF NOT EXISTS ingredients (
-        id SERIAL PRIMARY KEY,
-        nom TEXT UNIQUE,
-        image_url TEXT,
-        color TEXT DEFAULT '#FF9800',
-        disponible INTEGER DEFAULT 1
-    )''')
-    
-    # Vérifier si les données par défaut existent
-    c.execute('SELECT COUNT(*) FROM ingredients')
-    count = c.fetchone()[0]
-    
-    if count == 0:
+    # Ajouter les ingrédients par défaut
+    if Ingredient.query.count() == 0:
         ingredients_default = [
             ('Oignons', 'https://images.unsplash.com/photo-1588195538326-c5b1e9f80a1b?w=200&h=200&fit=crop', '#FFC107'),
             ('Jambon', 'https://images.unsplash.com/photo-1628840042765-356cda07f4ee?w=200&h=200&fit=crop', '#FF6B6B'),
@@ -54,12 +51,8 @@ def init_db():
             ('Olives', 'https://images.unsplash.com/photo-1599599810694-a5e1ba78b5dc?w=200&h=200&fit=crop', '#424242')
         ]
         for nom, url, color in ingredients_default:
-            c.execute('INSERT INTO ingredients (nom, image_url, color, disponible) VALUES (%s, %s, %s, 1)',
-                     (nom, url, color))
-    
-    conn.commit()
-    c.close()
-    conn.close()
+            db.session.add(Ingredient(nom=nom, image_url=url, color=color, disponible=1))
+        db.session.commit()
 
 # Middleware : vérifier IP
 @app.before_request
@@ -86,14 +79,11 @@ def cuisine():
 
 @app.route('/api/commandes', methods=['GET'])
 def get_commandes():
-    conn = get_db()
-    c = conn.cursor(cursor_factory=RealDictCursor)
-    c.execute('SELECT * FROM commandes WHERE statut = %s ORDER BY created_at DESC', ('en attente',))
-    commandes = c.fetchall()
-    c.close()
-    conn.close()
-    
-    return jsonify([dict(cmd) for cmd in commandes])
+    commandes = Commande.query.filter_by(statut='en attente').order_by(Commande.created_at.desc()).all()
+    return jsonify([{
+        'id': c.id, 'nom': c.nom, 'base': c.base, 
+        'ingredients': c.ingredients, 'heure': c.created_at.isoformat()
+    } for c in commandes])
 
 @app.route('/api/commander', methods=['POST'])
 def commander():
@@ -105,74 +95,52 @@ def commander():
     if not nom or not ingredients:
         return jsonify({'erreur': 'Données incomplètes'}), 400
 
-    conn = get_db()
-    c = conn.cursor()
-    c.execute('INSERT INTO commandes (nom, base, ingredients, created_at) VALUES (%s, %s, %s, %s)',
-              (nom, base, ingredients, datetime.now()))
-    conn.commit()
-    c.close()
-    conn.close()
+    cmd = Commande(nom=nom, base=base, ingredients=ingredients)
+    db.session.add(cmd)
+    db.session.commit()
 
     return jsonify({'success': True, 'message': 'Pizza commandée !'})
 
 @app.route('/api/fait/<int:id>', methods=['POST'])
 def marquer_fait(id):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute('UPDATE commandes SET statut = %s WHERE id = %s', ('fait', id))
-    conn.commit()
-    c.close()
-    conn.close()
+    cmd = Commande.query.get(id)
+    if cmd:
+        cmd.statut = 'fait'
+        db.session.commit()
     return jsonify({'success': True})
 
 # --- API CONFIG ---
 
 @app.route('/api/config', methods=['GET'])
 def get_config():
-    conn = get_db()
-    c = conn.cursor(cursor_factory=RealDictCursor)
-    c.execute('SELECT id, nom, image_url, color FROM ingredients WHERE disponible = 1')
-    ingredients = c.fetchall()
-    c.close()
-    conn.close()
-    
+    ingredients = Ingredient.query.filter_by(disponible=1).all()
     return jsonify({
         'bases': ['Base tomate', 'Base crème fraîche'],
-        'ingredients': [dict(ing) for ing in ingredients]
+        'ingredients': [{
+            'id': ing.id, 'nom': ing.nom, 
+            'image': ing.image_url, 'color': ing.color
+        } for ing in ingredients]
     })
 
 # --- API INGRÉDIENTS ---
 
 @app.route('/api/ingredients', methods=['GET'])
 def get_ingredients():
-    conn = get_db()
-    c = conn.cursor(cursor_factory=RealDictCursor)
-    c.execute('SELECT id, nom, image_url, color, disponible FROM ingredients')
-    ingredients = c.fetchall()
-    c.close()
-    conn.close()
-    
-    return jsonify([dict(ing) for ing in ingredients])
+    ingredients = Ingredient.query.all()
+    return jsonify([{
+        'id': ing.id, 'nom': ing.nom, 'image': ing.image_url,
+        'color': ing.color, 'disponible': ing.disponible
+    } for ing in ingredients])
 
 @app.route('/api/ingredient/<int:id>/toggle', methods=['POST'])
 def toggle_ingredient(id):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute('SELECT disponible FROM ingredients WHERE id = %s', (id,))
-    result = c.fetchone()
-    
-    if not result:
-        c.close()
-        conn.close()
+    ing = Ingredient.query.get(id)
+    if not ing:
         return jsonify({'erreur': 'Ingrédient non trouvé'}), 404
     
-    nouveau_statut = 1 - result[0]
-    c.execute('UPDATE ingredients SET disponible = %s WHERE id = %s', (nouveau_statut, id))
-    conn.commit()
-    c.close()
-    conn.close()
-    
-    return jsonify({'success': True, 'disponible': bool(nouveau_statut)})
+    ing.disponible = 1 - ing.disponible
+    db.session.commit()
+    return jsonify({'success': True, 'disponible': bool(ing.disponible)})
 
 @app.route('/api/ingredient', methods=['POST'])
 def add_ingredient():
@@ -185,68 +153,57 @@ def add_ingredient():
         if not nom:
             return jsonify({'erreur': 'Nom vide'}), 400
         
-        if not image:
-            image = 'https://via.placeholder.com/200'
+        ing = Ingredient(nom=nom, image_url=image, color=color, disponible=1)
+        db.session.add(ing)
+        db.session.commit()
         
-        conn = get_db()
-        c = conn.cursor()
-        c.execute('INSERT INTO ingredients (nom, image_url, color, disponible) VALUES (%s, %s, %s, 1)',
-                  (nom, image, color))
-        conn.commit()
-        c.close()
-        conn.close()
+        return jsonify({'success': True, 'id': ing.id})
         
-        return jsonify({'success': True})
-        
-    except psycopg2.IntegrityError:
-        return jsonify({'erreur': 'Ingrédient existe déjà'}), 400
     except Exception as e:
+        db.session.rollback()
+        if 'UNIQUE constraint failed' in str(e) or 'duplicate key' in str(e):
+            return jsonify({'erreur': 'Ingrédient existe déjà'}), 400
         return jsonify({'erreur': str(e)}), 500
 
 @app.route('/api/ingredient/<int:id>', methods=['PUT'])
 def update_ingredient(id):
     try:
+        ing = Ingredient.query.get(id)
+        if not ing:
+            return jsonify({'erreur': 'Ingrédient non trouvé'}), 404
+        
         data = request.json
         nom = data.get('nom', '').strip()
         image = data.get('image', '').strip()
         color = data.get('color', '#FF9800')
         
-        if not nom:
-            return jsonify({'erreur': 'Nom vide'}), 400
+        if not nom or not image:
+            return jsonify({'erreur': 'Données incomplètes'}), 400
         
-        if not image:
-            return jsonify({'erreur': 'URL image vide'}), 400
-        
-        conn = get_db()
-        c = conn.cursor()
-        c.execute('UPDATE ingredients SET nom = %s, image_url = %s, color = %s WHERE id = %s',
-                  (nom, image, color, id))
-        conn.commit()
-        c.close()
-        conn.close()
+        ing.nom = nom
+        ing.image_url = image
+        ing.color = color
+        db.session.commit()
         
         return jsonify({'success': True})
         
-    except psycopg2.IntegrityError:
-        return jsonify({'erreur': 'Nom existe déjà'}), 400
     except Exception as e:
+        db.session.rollback()
+        if 'UNIQUE constraint failed' in str(e) or 'duplicate key' in str(e):
+            return jsonify({'erreur': 'Nom existe déjà'}), 400
         return jsonify({'erreur': str(e)}), 500
 
 @app.route('/api/ingredient/<int:id>', methods=['DELETE'])
 def delete_ingredient(id):
     try:
-        conn = get_db()
-        c = conn.cursor()
-        c.execute('DELETE FROM ingredients WHERE id = %s', (id,))
-        conn.commit()
-        c.close()
-        conn.close()
-        
+        ing = Ingredient.query.get(id)
+        if ing:
+            db.session.delete(ing)
+            db.session.commit()
         return jsonify({'success': True})
-        
     except Exception as e:
+        db.session.rollback()
         return jsonify({'erreur': str(e)}), 500
 
 if __name__ == '__main__':
-    init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)
