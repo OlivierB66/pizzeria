@@ -45,7 +45,7 @@ def init_db():
 
 # Middleware : vérifier IP
 
-ALLOWED_PUBLIC_IPS = [os.getenv('HOME_IP', '')]  # À configurer
+ALLOWED_PUBLIC_IPS = [os.getenv('HOME_IP', '83.204.197.36')]  # À configurer
 
 @app.before_request
 def check_ip():
