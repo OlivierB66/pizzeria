@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Préparation 🍕</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial; background: #1a1a1a; color: #fff; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        
+        h1 { text-align: center; margin-bottom: 30px; color: #ff9800; }
+        
+        .commandes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .commande {
+            background: #2a2a2a;
+            border: 3px solid #ff9800;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .commande.urgent {
+            border-color: #f44336;
+            background: #3a2a2a;
+        }
+
+        .client-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #ff9800;
+        }
+
+        .base {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        .ingredients {
+            background: #333;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .ingredients strong { display: block; margin-bottom: 8px; color: #4caf50; }
+        .ingredients span {
+            display: inline-block;
+            background: #4caf50;
+            color: #000;
+            padding: 5px 10px;
+            margin: 3px;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+
+        .heure {
+            color: #999;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .btn-fait {
+            width: 100%;
+            padding: 12px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 15px;
+            font-size: 16px;
+        }
+
+        .btn-fait:hover { background: #388e3c; }
+
+        .vide {
+            text-align: center;
+            padding: 60px 20px;
+            font-size: 24px;
+            color: #4caf50;
+        }
+
+        .stats {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 18px;
+        }
+
+        .stats strong { color: #ff9800; }
+
+        .ingredient-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            margin: 3px;
+            border-radius: 20px;
+            font-weight: bold;
+            color: #000;
+            font-size: 13px;
+            text-shadow: 0 1px 1px rgba(255,255,255,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👨‍🍳 À Préparer</h1>
+        
+        <div class="stats">
+            <strong id="count">0</strong> pizza(s) en attente
+        </div>
+
+        <div class="commandes-grid" id="commandes-list">
+            <div class="vide">Aucune commande 😴</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+
+        async function afficherCommandes() {
+            try {
+                const res = await fetch(`${API_BASE}/commandes`);
+                const commandes = await res.json();
+
+                // Charger les couleurs des ingrédients
+                const resConfig = await fetch(`${API_BASE}/config`);
+                const config = await resConfig.json();
+                const colorMap = {};
+                config.ingredients.forEach(ing => {
+                    colorMap[ing.nom] = ing.color;
+                });
+
+                document.getElementById('count').textContent = commandes.length;
+
+                if (commandes.length === 0) {
+                    document.getElementById('commandes-list').innerHTML = '<div class="vide">Aucune commande 😴</div>';
+                    return;
+                }
+
+                const html = commandes.map(c => `
+                    <div class="commande">
+                        <div class="client-name">${c.nom}</div>
+                        <div class="base">${c.base}</div>
+                        <div class="ingredients">
+                            <strong>Ingrédients :</strong>
+                            <div style="margin-top: 8px;">
+                                ${c.ingredients.split(',').map(ing => {
+                                    const ingName = ing.trim();
+                                    const color = colorMap[ingName] || '#FF9800';
+                                    return `<span class="ingredient-badge" style="background-color: ${color};">${ingName}</span>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                        <div class="heure">📅 ${new Date(c.heure).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</div>
+                        <button class="btn-fait" onclick="marquerFait(${c.id})">✓ Pizza prête</button>
+                    </div>
+                `).join('');
+
+                document.getElementById('commandes-list').innerHTML = html;
+            } catch (e) {
+                console.error('Erreur:', e);
+            }
+        }
+
+        async function marquerFait(id) {
+            await fetch(`${API_BASE}/fait/${id}`, { method: 'POST' });
+            afficherCommandes();
+        }
+
+        // Init
+        afficherCommandes();
+        setInterval(afficherCommandes, 2000); // Actualisation auto
+    </script>
+</body>
+</html>

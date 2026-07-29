@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Pizza 🍕</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial; background: #1a1a1a; color: #fff; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        
+        .panel { background: #2a2a2a; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .panel h2 { margin-bottom: 15px; color: #ff9800; border-bottom: 2px solid #ff9800; padding-bottom: 10px; }
+        
+        .ingredient-item { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            background: #333; 
+            padding: 12px; 
+            margin: 8px 0; 
+            border-radius: 5px;
+            border-left: 4px solid #ff9800;
+        }
+        
+        .ingredient-item.unavailable { 
+            opacity: 0.5;
+            border-left-color: #666;
+        }
+
+        .ingredient-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .ingredient-image {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            object-fit: cover;
+            background: #444;
+        }
+        
+        .ingredient-name { font-weight: bold; }
+        
+        .toggle-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        
+        .toggle-btn.available {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .toggle-btn.available:hover { background: #388e3c; }
+        
+        .toggle-btn.unavailable {
+            background: #f44336;
+            color: white;
+        }
+        
+        .toggle-btn.unavailable:hover { background: #d32f2f; }
+        
+        input { 
+            width: 100%;
+            padding: 10px; 
+            border: 1px solid #ff9800; 
+            border-radius: 4px;
+            background: #333;
+            color: #fff;
+            margin: 8px 0;
+        }
+
+        input::placeholder { color: #999; }
+        
+        .add-form { margin: 15px 0; }
+        
+        button {
+            width: 100%;
+            padding: 10px 20px;
+            background: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        button:hover { background: #f57c00; }
+        
+        .message { padding: 10px; margin: 10px 0; border-radius: 4px; display: none; text-align: center; }
+        .message.success { background: #4caf50; }
+        .message.error { background: #f44336; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="text-align:center; margin-bottom:30px;">👨‍🍳 Cuisine</h1>
+        
+        <!-- GESTION INGRÉDIENTS -->
+        <div class="panel">
+            <h2>Ingrédients Disponibles</h2>
+            <div id="ingredients-list"></div>
+            
+            <h3 style="margin-top: 20px; color: #ff9800;">Ajouter ou éditer un ingrédient</h3>
+            <div class="add-form">
+                <input id="new-ingredient" type="text" placeholder="Nom de l'ingrédient" />
+                <input id="new-image-url" type="text" placeholder="URL de l'image (ex: https://...)" />
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="color: #fff; font-weight: bold;">Couleur :</label>
+                    <input id="new-color" type="color" value="#FF9800" style="width: 60px; height: 40px; border: none; cursor: pointer;" />
+                </div>
+                <button id="add-btn" onclick="addIngredient()">+ Ajouter</button>
+                <button id="cancel-btn" style="display: none; background: #666;" onclick="cancelEdit()">✕ Annuler</button>
+            </div>
+                        
+            <div id="message" class="message"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        
+        // supprimer les ingrédients
+        async function deleteIngredient(id) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer cet ingrédient ?')) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/ingredient/${id}`, { 
+                    method: 'DELETE'
+                });
+
+                if (res.ok) {
+                    chargerIngedients();
+                    showMessage('Ingrédient supprimé !', 'success');
+                } else {
+                    const data = await res.json();
+                    showMessage('Erreur: ' + data.erreur, 'error');
+                }
+            } catch (e) {
+                showMessage('Erreur réseau: ' + e.message, 'error');
+            }
+        }
+        // Charger les ingrédients
+        async function chargerIngedients() {
+            try {
+                const res = await fetch(`${API_BASE}/ingredients`);
+                const ingredients = await res.json();
+
+                const html = ingredients.map(ing => `
+                    <div class="ingredient-item ${ing.disponible ? '' : 'unavailable'}" style="border-left-color: ${ing.color};">
+                        <div class="ingredient-info">
+                            <img src="${ing.image}" alt="${ing.nom}" class="ingredient-image" onerror="this.src='https://via.placeholder.com/40'">
+                            <span class="ingredient-name">${ing.nom}</span>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button style="width: auto; padding: 8px 12px; background: #2196F3; font-size: 12px;" onclick="editIngredient(${ing.id}, '${ing.nom}', '${ing.image}', '${ing.color}')">
+                                ✏️ Éditer
+                            </button>
+                            <button class="toggle-btn ${ing.disponible ? 'available' : 'unavailable'}" 
+                                    style="width: auto; padding: 8px 12px; font-size: 12px;"
+                                    onclick="toggleIngredient(${ing.id})">
+                                ${ing.disponible ? '✓ Dispo' : '✗ Indispo'}
+                            </button>
+                            <button style="width: auto; padding: 8px 12px; background: #f44336; font-size: 12px;" onclick="deleteIngredient(${ing.id})">
+                                🗑️ Supprimer
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('ingredients-list').innerHTML = html;
+            } catch (e) {
+                console.error('Erreur:', e);
+            }
+        }
+
+        // Basculer disponibilité
+        async function toggleIngredient(id) {
+            try {
+                const res = await fetch(`${API_BASE}/ingredient/${id}/toggle`, { method: 'POST' });
+                if (res.ok) {
+                    chargerIngedients();
+                    showMessage('Ingrédient mis à jour', 'success');
+                }
+            } catch (e) {
+                showMessage('Erreur: ' + e.message, 'error');
+            }
+        }
+
+        // Ajouter ingrédient
+        async function addIngredient() {
+            const nom = document.getElementById('new-ingredient').value.trim();
+            const imageUrl = document.getElementById('new-image-url').value.trim();
+            const color = document.getElementById('new-color').value;
+            
+            if (!nom) {
+                showMessage('Nom vide', 'error');
+                return;
+            }
+
+            if (!imageUrl) {
+                showMessage('URL image vide', 'error');
+                return;
+            }
+
+            try {
+                let endpoint = `${API_BASE}/ingredient`;
+                let method = 'POST';
+                let body = { nom: nom, image: imageUrl, color: color };
+
+                if (editingId) {
+                    endpoint = `${API_BASE}/ingredient/${editingId}`;
+                    method = 'PUT';
+                    body.id = editingId;
+                }
+
+                const res = await fetch(endpoint, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    document.getElementById('new-ingredient').value = '';
+                    document.getElementById('new-image-url').value = '';
+                    document.getElementById('new-color').value = '#FF9800';
+                    cancelEdit();
+                    chargerIngedients();
+                    showMessage(editingId ? 'Ingrédient mis à jour !' : 'Ingrédient ajouté !', 'success');
+                } else {
+                    showMessage('Erreur: ' + data.erreur, 'error');
+                }
+            } catch (e) {
+                showMessage('Erreur réseau: ' + e.message, 'error');
+            }
+        }
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = `message ${type}`;
+            msg.style.display = 'block';
+            setTimeout(() => msg.style.display = 'none', 3000);
+        }
+        let editingId = null;
+
+        function editIngredient(id, nom, image, color) {
+            editingId = id;
+            document.getElementById('new-ingredient').value = nom;
+            document.getElementById('new-image-url').value = image;
+            document.getElementById('new-color').value = color;
+            document.getElementById('add-btn').textContent = '💾 Mettre à jour';
+            document.getElementById('cancel-btn').style.display = 'inline-block';
+            document.getElementById('new-ingredient').focus();
+        }
+
+        function cancelEdit() {
+            editingId = null;
+            document.getElementById('new-ingredient').value = '';
+            document.getElementById('new-image-url').value = '';
+            document.getElementById('add-btn').textContent = '+ Ajouter';
+            document.getElementById('cancel-btn').style.display = 'none';
+        }
+        // Init
+        chargerIngedients();
+    </script>
+</body>
+</html>
