@@ -10,11 +10,18 @@ app = Flask(__name__)
 # Config BD
 DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///pizzas.db')
 
-# Convertir postgres:// en postgresql:// pour SQLAlchemy 2.0
+# Forcer psycopg (v3) au lieu de psycopg2
 if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
+    # Remplace postgres:// par postgresql+psycopg://
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql+psycopg://', 1)
+elif DATABASE_URL and DATABASE_URL.startswith('postgresql://'):
+    # Remplace postgresql:// par postgresql+psycopg://
+    DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://', 1)
 
+print(f"DEBUG: Using DATABASE_URL = {DATABASE_URL[:50]}...")  # Debug
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
