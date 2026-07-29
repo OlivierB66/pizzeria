@@ -2,13 +2,17 @@ from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
+os.environ['SQLALCHEMY_SILENCE_UBER_WARNING'] = '1'
 
 app = Flask(__name__)
 
+
 # Config BD
 DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///pizzas.db')
-if DATABASE_URL.startswith('postgres://'):
-    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+
+# Convertir postgres:// en postgresql:// pour SQLAlchemy 2.0
+if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
+    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql+psycopg://', 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
