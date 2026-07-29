@@ -74,7 +74,7 @@ def check_ip():
         ip = ip.split(',')[0].strip()  # Si plusieurs IPs, prendre la première
     
     # Récupérer la HOME_IP depuis les variables d'env
-    home_ip = os.getenv('HOME_IP', '')
+    home_ip = os.getenv('HOME_IP', '83.204.197.36')
     
     print(f"DEBUG: Client IP = {ip}, HOME_IP = {home_ip}")  # Debug
     
