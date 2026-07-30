@@ -60,7 +60,6 @@ with app.app_context():
             ('Oignons', 'https://images.unsplash.com/photo-1588195538326-c5b1e9f80a1b?w=200&h=200&fit=crop', '#FFC107'),
             ('Jambon', 'https://images.unsplash.com/photo-1628840042765-356cda07f4ee?w=200&h=200&fit=crop', '#FF6B6B'),
             ('Mozzarella', 'https://images.unsplash.com/photo-1452894896566-922e9cd1a51c?w=200&h=200&fit=crop', '#FFFFFF'),
-            ('Pepperoni', 'https://images.unsplash.com/photo-1628840042765-356cda07f4ee?w=200&h=200&fit=crop', '#D32F2F'),
             ('Champignons', 'https://images.unsplash.com/photo-1545069975-85b100854f27?w=200&h=200&fit=crop', '#795548'),
             ('Olives', 'https://images.unsplash.com/photo-1599599810694-a5e1ba78b5dc?w=200&h=200&fit=crop', '#424242')
         ]
