@@ -77,8 +77,11 @@ def check_ip():
     
     home_ip = os.getenv('HOME_IP', '')
     
+    print(f"DEBUG: IP={ip}, HOME_IP={home_ip}, Match={ip.startswith(home_ip)}")
+    
     if not (any(ip.startswith(allowed) for allowed in ['127.0.0.1', '192.168.1.']) 
-            or ip.startswith(home_ip)):
+            or (home_ip and ip.startswith(home_ip))):
+        print(f"DEBUG: Blocage pour {ip}")
         return jsonify({'erreur': 'Accès non autorisé'}), 403
 
 # --- ROUTES PRINCIPALES ---
