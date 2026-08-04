@@ -123,10 +123,18 @@ def commander():
     data = request.json
     nom = data.get('nom', '').strip()
     base = data.get('base', '')
-    ingredients = ','.join(data.get('ingredients', []))
+    ingredients_data = data.get('ingredients', [])
 
-    if not nom or not ingredients:
+    if not nom:
         return jsonify({'erreur': 'Données incomplètes'}), 400
+
+    # Gérer les deux formats (liste simple ou dict moitié-moitié)
+    if isinstance(ingredients_data, dict):
+        # Format moitié-moitié
+        ingredients = json.dumps(ingredients_data)
+    else:
+        # Format simple
+        ingredients = ','.join(ingredients_data)
 
     cmd = Commande(nom=nom, base=base, ingredients=ingredients)
     db.session.add(cmd)
