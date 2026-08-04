@@ -101,14 +101,19 @@
         .stats strong { color: #ff9800; }
 
         .ingredient-badge {
-            display: inline-block;
-            padding: 6px 12px;
-            margin: 3px;
-            border-radius: 20px;
+            display: block;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 6px;
             font-weight: bold;
             color: #000;
-            font-size: 13px;
+            font-size: 16px;
             text-shadow: 0 1px 1px rgba(255,255,255,0.3);
+        }
+
+        .ingredient-badge.prepared {
+            text-decoration: line-through;
+            opacity: 0.6;
         }
         .ingredient-badge.prepared {
             text-decoration: line-through;
@@ -169,15 +174,17 @@
                                         const color = colorMap[ingName] || '#FF9800';
                                         const isPrepared = prepares[ingName] || false;
                                         return `
-                                            <label style="display: inline-flex; align-items: center; gap: 8px; margin: 3px; cursor: pointer;">
-                                                <input type="checkbox" ${isPrepared ? 'checked' : ''} 
-                                                    onchange="toggleIngrédient(${c.id}, '${ingName}')"
-                                                    style="cursor: pointer;">
-                                                <span class="ingredient-badge ${isPrepared ? 'prepared' : ''}" 
-                                                    style="background-color: ${color}; margin: 0;">
-                                                    ${ingName}
-                                                </span>
-                                            </label>
+                                            <div style="margin: 8px 0;">
+                                                <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                                                    <input type="checkbox" ${isPrepared ? 'checked' : ''} 
+                                                        onchange="toggleIngrédient(${c.id}, '${ingName}')"
+                                                        style="cursor: pointer; width: 20px; height: 20px;">
+                                                    <span class="ingredient-badge ${isPrepared ? 'prepared' : ''}" 
+                                                        style="background-color: ${color}; margin: 0; flex: 1;">
+                                                        ${ingName}
+                                                    </span>
+                                                </label>
+                                            </div>
                                         `;
                                     }).join('')}
                                 </div>
