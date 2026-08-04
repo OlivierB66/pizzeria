@@ -138,61 +138,118 @@
         const API_BASE = '/api';
 
         async function afficherCommandes() {
+    try {
+        const res = await fetch(`${API_BASE}/commandes`);
+        const commandes = await res.json();
+
+        const resConfig = await fetch(`${API_BASE}/config`);
+        const config = await resConfig.json();
+        const colorMap = {};
+        config.ingredients.forEach(ing => {
+            colorMap[ing.nom] = ing.color;
+        });
+
+        document.getElementById('count').textContent = commandes.length;
+
+        if (commandes.length === 0) {
+            document.getElementById('commandes-list').innerHTML = '<div class="vide">Aucune commande 😴</div>';
+            return;
+        }
+
+        const html = await Promise.all(commandes.map(async c => {
+            const resPrepares = await fetch(`${API_BASE}/commande/${c.id}/ingredients-prepares`);
+            const prepares = await resPrepares.json();
+
+            let ingredientsHTML = '';
+            
+            // Vérifier si c'est une moitié-moitié (JSON)
+            let tomateCote = [];
+            let cremeCote = [];
+            
             try {
-                const res = await fetch(`${API_BASE}/commandes`);
-                const commandes = await res.json();
-
-                // Charger les couleurs des ingrédients
-                const resConfig = await fetch(`${API_BASE}/config`);
-                const config = await resConfig.json();
-                const colorMap = {};
-                config.ingredients.forEach(ing => {
-                    colorMap[ing.nom] = ing.color;
-                });
-
-                document.getElementById('count').textContent = commandes.length;
-
-                if (commandes.length === 0) {
-                    document.getElementById('commandes-list').innerHTML = '<div class="vide">Aucune commande 😴</div>';
-                    return;
-                }
-
-                const html = await Promise.all(commandes.map(async c => {
-                    // Charger les ingrédients préparés
-                    const resPrepares = await fetch(`${API_BASE}/commande/${c.id}/ingredients-prepares`);
-                    const prepares = await resPrepares.json();
-
-                    return `
-                        <div class="commande">
-                            <div class="client-name">${c.nom}</div>
-                            <div class="base">${c.base}</div>
-                            <div class="ingredients">
-                                <strong>Ingrédients :</strong>
-                                <div style="margin-top: 8px;">
-                                    ${c.ingredients.split(',').map(ing => {
-                                        const ingName = ing.trim();
-                                        const color = colorMap[ingName] || '#FF9800';
-                                        const isPrepared = prepares[ingName] || false;
-                                        return `
-                                            <div style="margin: 8px 0;">
-                                                <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
-                                                    <input type="checkbox" ${isPrepared ? 'checked' : ''} 
-                                                        onchange="toggleIngrédient(${c.id}, '${ingName}')"
-                                                        style="cursor: pointer; width: 20px; height: 20px;">
-                                                    <span class="ingredient-badge ${isPrepared ? 'prepared' : ''}" 
-                                                        style="background-color: ${color}; margin: 0; flex: 1;">
-                                                        ${ingName}
-                                                    </span>
-                                                </label>
-                                            </div>
-                                        `;
-                                    }).join('')}
-                                </div>
+                const parsed = JSON.parse(c.ingredients);
+                if (parsed.tomate && parsed.creme) {
+                    // Format moitié-moitié
+                    tomateCote = parsed.tomate;
+                    cremeCote = parsed.creme;
+                    
+                    ingredientsHTML = `
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 10px 0;">
+                            <div style="border: 2px solid #d32f2f; border-radius: 6px; padding: 10px;">
+                                <strong style="color: #d32f2f;">🍅 Côté Tomate</strong>
+                                ${tomateCote.map(ing => `
+                                    <div style="margin: 8px 0;">
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" ${prepares[ing] ? 'checked' : ''} 
+                                                   onchange="toggleIngrédient(${c.id}, '${ing}')"
+                                                   style="cursor: pointer;">
+                                            <span class="ingredient-badge ${prepares[ing] ? 'prepared' : ''}" 
+                                                  style="background-color: ${colorMap[ing] || '#FF9800'}; margin: 0; flex: 1;">
+                                                ${ing}
+                                            </span>
+                                        </label>
+                                    </div>
+                                `).join('')}
                             </div>
-                            <div class="heure">📅 ${new Date(c.heure).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</div>
-                            <button class="btn-fait" onclick="marquerFait(${c.id})">✓ Pizza prête</button>
+                            <div style="border: 2px solid #8b7355; border-radius: 6px; padding: 10px;">
+                                <strong style="color: #8b7355;">🥛 Côté Crème</strong>
+                                ${cremeCote.map(ing => `
+                                    <div style="margin: 8px 0;">
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" ${prepares[ing] ? 'checked' : ''} 
+                                                   onchange="toggleIngrédient(${c.id}, '${ing}')"
+                                                   style="cursor: pointer;">
+                                            <span class="ingredient-badge ${prepares[ing] ? 'prepared' : ''}" 
+                                                  style="background-color: ${colorMap[ing] || '#FF9800'}; margin: 0; flex: 1;">
+                                                ${ing}
+                                            </span>
+                                        </label>
+                                    </div>
+                                `).join('')}
+                            </div>
                         </div>
                     `;
+                } else {
+                    throw new Error('Not half & half');
+                }
+            } catch {
+                // Format simple
+                ingredientsHTML = `
+                    <div class="ingredients">
+                        <strong>Ingrédients :</strong>
+                        <div style="margin-top: 8px;">
+                            ${c.ingredients.split(',').map(ing => {
+                                const ingName = ing.trim();
+                                const color = colorMap[ingName] || '#FF9800';
+                                const isPrepared = prepares[ingName] || false;
+                                return `
+                                    <div style="margin: 8px 0;">
+                                        <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                                            <input type="checkbox" ${isPrepared ? 'checked' : ''} 
+                                                   onchange="toggleIngrédient(${c.id}, '${ingName}')"
+                                                   style="cursor: pointer; width: 20px; height: 20px;">
+                                            <span class="ingredient-badge ${isPrepared ? 'prepared' : ''}" 
+                                                  style="background-color: ${color}; margin: 0; flex: 1;">
+                                                ${ingName}
+                                            </span>
+                                        </label>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="commande">
+                    <div class="client-name">${c.nom}</div>
+                    <div class="base">${c.base}</div>
+                    ${ingredientsHTML}
+                    <div class="heure">📅 ${new Date(c.heure).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</div>
+                    <button class="btn-fait" onclick="marquerFait(${c.id})">✓ Pizza prête</button>
+                </div>
+            `;
                 })).then(results => results.join(''));
 
                 document.getElementById('commandes-list').innerHTML = html;

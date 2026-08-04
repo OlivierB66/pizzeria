@@ -111,6 +111,33 @@
             font-weight: bold;
         }
 
+        .layout-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .half-column {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+
+        .half-column h3 {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .half-column.tomate {
+            border-left-color: #d32f2f;
+        }
+
+        .half-column.creme {
+            border-left-color: #8b7355;
+        }
+
         .confirmation.show { display: block; }
     </style>
 </head>
@@ -123,12 +150,25 @@
             
             <input id="nom" placeholder="Ton prénom" required>
             
-            <select id="base">
-                <option>-- Choisis une base --</option>
-            </select>
-            
-            <h3 style="margin-top: 20px; margin-bottom: 10px; color: #333;">Sélectionne tes ingrédients :</h3>
-            <div class="ingredients-grid" id="ingredients-list"></div>
+           <!-- SÉLECTION INGRÉDIENTS - UNE BASE -->
+            <div id="ingredients-single">
+                <strong>Sélectionne tes ingrédients :</strong>
+                <div class="ingredients-grid" id="ingredients-list"></div>
+            </div>
+
+            <!-- SÉLECTION INGRÉDIENTS - MOITIÉ-MOITIÉ -->
+            <div id="ingredients-double" style="display: none;">
+                <div class="layout-columns">
+                    <div class="half-column tomate">
+                        <h3>🍅 Côté Tomate</h3>
+                        <div class="ingredients-grid" id="ingredients-tomate"></div>
+                    </div>
+                    <div class="half-column creme">
+                        <h3>🥛 Côté Crème Fraîche</h3>
+                        <div class="ingredients-grid" id="ingredients-creme"></div>
+                    </div>
+                </div>
+            </div>
             
             <button onclick="commanderPizza()">✓ Valider ma commande</button>
             
@@ -143,52 +183,150 @@
 
         // Charger config au démarrage
         async function chargerConfig() {
-        try {
-            const res = await fetch(`${API_BASE}/config`);
-            const config = await res.json();
-            
-            // Remplir les bases
-            const baseSelect = document.getElementById('base');
-            config.bases.forEach(b => {
-                const opt = document.createElement('option');
-                opt.value = b;
-                opt.textContent = b;
-                baseSelect.appendChild(opt);
-            });
-
-            // Remplir les ingrédients avec images
-            const ingList = document.getElementById('ingredients-list');
-            config.ingredients.forEach(ing => {
-                const div = document.createElement('div');
-                div.className = 'ingredient-card';
+            try {
+                const res = await fetch(`${API_BASE}/config`);
+                const config = await res.json();
                 
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.value = ing.nom;
-                checkbox.id = `ing-${ing.id}`;
+                // Remplir les bases
+                const baseSelect = document.getElementById('base');
+                config.bases.forEach(b => {
+                    const opt = document.createElement('option');
+                    opt.value = b;
+                    opt.textContent = b;
+                    baseSelect.appendChild(opt);
+                });
                 
-                const img = document.createElement('img');
-                img.src = ing.image;
-                img.alt = ing.nom;
-                img.style.cursor = 'pointer';
-                img.onclick = function() {  // ← AJOUTE CECI
-                    checkbox.checked = !checkbox.checked;
-                };
-                img.onerror = function() { this.style.display = 'none'; };
+                // Ajouter l'option moitié-moitié
+                const optMoitie = document.createElement('option');
+                optMoitie.value = 'Moitié-Moitié';
+                optMoitie.textContent = '🍕 Moitié-Moitié (Tomate/Crème)';
+                baseSelect.appendChild(optMoitie);
                 
-                const label = document.createElement('label');
-                label.htmlFor = `ing-${ing.id}`;
-                label.textContent = ing.nom;
+                // Event pour afficher/masquer les colonnes
+                baseSelect.addEventListener('change', afficherIngredientsSelonBase);
                 
-                div.appendChild(img);
-                div.appendChild(checkbox);
-                div.appendChild(label);
-                ingList.appendChild(div);
-            });
-        } catch (e) {
-            console.error('Erreur config:', e);
+                // Charger les ingrédients
+                chargerIngredientsClient(config.ingredients);
+            } catch (e) {
+                console.error('Erreur config:', e);
+            }
         }
-    }
+
+        function afficherIngredientsSelonBase() {
+            const base = document.getElementById('base').value;
+            const singleCol = document.getElementById('ingredients-single');
+            const doubleCol = document.getElementById('ingredients-double');
+            
+            if (base === 'Moitié-Moitié') {
+                singleCol.style.display = 'none';
+                doubleCol.style.display = 'grid';
+            } else {
+                singleCol.style.display = 'grid';
+                doubleCol.style.display = 'none';
+            }
+        }
+
+        function chargerIngredientsClient(ingredients) {
+            const singleCol = document.getElementById('ingredients-list');
+            const leftCol = document.getElementById('ingredients-tomate');
+            const rightCol = document.getElementById('ingredients-creme');
+            
+            // Une seule base
+            ingredients.forEach(ing => {
+                const div = creerCarteIngredient(ing);
+                singleCol.appendChild(div);
+            });
+            
+            // Moitié-moitié (gauche)
+            ingredients.forEach(ing => {
+                const div = creerCarteIngredient(ing, 'tomate');
+                leftCol.appendChild(div);
+            });
+            
+            // Moitié-moitié (droite)
+            ingredients.forEach(ing => {
+                const div = creerCarteIngredient(ing, 'creme');
+                rightCol.appendChild(div);
+            });
+        }
+
+        function creerCarteIngredient(ing, cote = null) {
+            const div = document.createElement('div');
+            div.className = 'ingredient-card';
+            
+            const idSuffix = cote ? `-${cote}` : '';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = ing.nom;
+            checkbox.id = `ing-${ing.id}${idSuffix}`;
+            
+            const img = document.createElement('img');
+            img.src = ing.image;
+            img.alt = ing.nom;
+            img.style.cursor = 'pointer';
+            img.onclick = function() {
+                checkbox.checked = !checkbox.checked;
+            };
+            img.onerror = function() { this.style.display = 'none'; };
+            
+            const label = document.createElement('label');
+            label.htmlFor = `ing-${ing.id}${idSuffix}`;
+            label.textContent = ing.nom;
+            
+            div.appendChild(img);
+            div.appendChild(checkbox);
+            div.appendChild(label);
+            return div;
+        }
+
+        async function commanderPizza() {
+            const nom = document.getElementById('nom').value.trim();
+            const base = document.getElementById('base').value;
+            
+            let ingredients = [];
+            
+            if (base === 'Moitié-Moitié') {
+                const tomateCbx = Array.from(document.querySelectorAll('input[id$="-tomate"]:checked'))
+                    .map(cb => cb.value);
+                const cremeCbx = Array.from(document.querySelectorAll('input[id$="-creme"]:checked'))
+                    .map(cb => cb.value);
+                
+                // Format spécial pour moitié-moitié
+                ingredients = {
+                    tomate: tomateCbx,
+                    creme: cremeCbx
+                };
+            } else {
+                ingredients = Array.from(document.querySelectorAll('input[type="checkbox"]:not([id$="-tomate"]):not([id$="-creme"]):checked'))
+                    .map(cb => cb.value);
+            }
+
+            if (!nom || base === '-- Choisis une base --' || (Array.isArray(ingredients) && ingredients.length === 0) || (typeof ingredients === 'object' && ingredients.tomate.length === 0 && ingredients.creme.length === 0)) {
+                alert('Complète ta commande !');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/commander`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nom, base, ingredients })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    alert('Pizza commandée ! 🍕');
+                    document.getElementById('nom').value = '';
+                    document.getElementById('base').value = '-- Choisis une base --';
+                    document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+                    afficherIngredientsSelonBase();
+                } else {
+                    alert('Erreur: ' + data.erreur);
+                }
+            } catch (e) {
+                alert('Erreur réseau: ' + e.message);
+            }
+        }
 
         async function commanderPizza() {
             const nom = document.getElementById('nom').value.trim();

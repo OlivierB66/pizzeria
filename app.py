@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from dotenv import load_dotenv
 import os
+import json
 os.environ['SQLALCHEMY_SILENCE_UBER_WARNING'] = '1'
 
 app = Flask(__name__)
