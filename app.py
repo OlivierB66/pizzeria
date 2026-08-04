@@ -50,6 +50,16 @@ class Ingredient(db.Model):
     color = db.Column(db.String(10), default='#FF9800')
     disponible = db.Column(db.Integer, default=1)
 
+# Ajouter ce modèle après la classe Ingredient
+
+class IngredientPrepare(db.Model):
+    __tablename__ = 'ingredients_prepares'
+    id = db.Column(db.Integer, primary_key=True)
+    commande_id = db.Column(db.Integer, db.ForeignKey('commandes.id'), nullable=False)
+    ingredient_nom = db.Column(db.String(100))
+    prepare = db.Column(db.Integer, default=0)
+
+
 # Créer les tables
 with app.app_context():
     db.create_all()
@@ -225,6 +235,45 @@ def delete_ingredient(id):
         return jsonify({'success': True})
     except Exception as e:
         db.session.rollback()
+        return jsonify({'erreur': str(e)}), 500
+
+@app.route('/api/commande/<int:commande_id>/ingredient/<ingredient_nom>/toggle-prepare', methods=['POST'])
+def toggle_ingredient_prepare(commande_id, ingredient_nom):
+    try:
+        # Chercher si déjà tracké
+        prep = IngredientPrepare.query.filter_by(
+            commande_id=commande_id, 
+            ingredient_nom=ingredient_nom
+        ).first()
+        
+        if prep:
+            # Basculer l'état
+            prep.prepare = 1 - prep.prepare
+        else:
+            # Créer une nouvelle entrée
+            prep = IngredientPrepare(
+                commande_id=commande_id,
+                ingredient_nom=ingredient_nom,
+                prepare=1
+            )
+            db.session.add(prep)
+        
+        db.session.commit()
+        return jsonify({'success': True, 'prepare': bool(prep.prepare)})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'erreur': str(e)}), 500
+
+@app.route('/api/commande/<int:commande_id>/ingredients-prepares', methods=['GET'])
+def get_ingredients_prepares(commande_id):
+    try:
+        preps = IngredientPrepare.query.filter_by(commande_id=commande_id).all()
+        return jsonify({
+            ing.ingredient_nom: bool(ing.prepare) 
+            for ing in preps
+        })
+    except Exception as e:
         return jsonify({'erreur': str(e)}), 500
 
 if __name__ == '__main__':

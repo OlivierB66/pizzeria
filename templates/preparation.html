@@ -110,6 +110,10 @@
             font-size: 13px;
             text-shadow: 0 1px 1px rgba(255,255,255,0.3);
         }
+        .ingredient-badge.prepared {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
     </style>
 </head>
 <body>
@@ -148,24 +152,41 @@
                     return;
                 }
 
-                const html = commandes.map(c => `
-                    <div class="commande">
-                        <div class="client-name">${c.nom}</div>
-                        <div class="base">${c.base}</div>
-                        <div class="ingredients">
-                            <strong>Ingrédients :</strong>
-                            <div style="margin-top: 8px;">
-                                ${c.ingredients.split(',').map(ing => {
-                                    const ingName = ing.trim();
-                                    const color = colorMap[ingName] || '#FF9800';
-                                    return `<span class="ingredient-badge" style="background-color: ${color};">${ingName}</span>`;
-                                }).join('')}
+                const html = await Promise.all(commandes.map(async c => {
+                    // Charger les ingrédients préparés
+                    const resPrepares = await fetch(`${API_BASE}/commande/${c.id}/ingredients-prepares`);
+                    const prepares = await resPrepares.json();
+
+                    return `
+                        <div class="commande">
+                            <div class="client-name">${c.nom}</div>
+                            <div class="base">${c.base}</div>
+                            <div class="ingredients">
+                                <strong>Ingrédients :</strong>
+                                <div style="margin-top: 8px;">
+                                    ${c.ingredients.split(',').map(ing => {
+                                        const ingName = ing.trim();
+                                        const color = colorMap[ingName] || '#FF9800';
+                                        const isPrepared = prepares[ingName] || false;
+                                        return `
+                                            <label style="display: inline-flex; align-items: center; gap: 8px; margin: 3px; cursor: pointer;">
+                                                <input type="checkbox" ${isPrepared ? 'checked' : ''} 
+                                                    onchange="toggleIngrédient(${c.id}, '${ingName}')"
+                                                    style="cursor: pointer;">
+                                                <span class="ingredient-badge ${isPrepared ? 'prepared' : ''}" 
+                                                    style="background-color: ${color}; margin: 0;">
+                                                    ${ingName}
+                                                </span>
+                                            </label>
+                                        `;
+                                    }).join('')}
+                                </div>
                             </div>
+                            <div class="heure">📅 ${new Date(c.heure).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</div>
+                            <button class="btn-fait" onclick="marquerFait(${c.id})">✓ Pizza prête</button>
                         </div>
-                        <div class="heure">📅 ${new Date(c.heure).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</div>
-                        <button class="btn-fait" onclick="marquerFait(${c.id})">✓ Pizza prête</button>
-                    </div>
-                `).join('');
+                    `;
+                })).then(results => results.join(''));
 
                 document.getElementById('commandes-list').innerHTML = html;
             } catch (e) {
@@ -181,6 +202,21 @@
         // Init
         afficherCommandes();
         setInterval(afficherCommandes, 2000); // Actualisation auto
+        async function toggleIngrédient(commandeId, ingredientNom) {
+            try {
+                const res = await fetch(
+                    `${API_BASE}/commande/${commandeId}/ingredient/${ingredientNom}/toggle-prepare`, 
+                    { method: 'POST' }
+                );
+                
+                if (res.ok) {
+                    afficherCommandes(); // Rafraîchir l'affichage
+                }
+            } catch (e) {
+                console.error('Erreur:', e);
+            }
+        }
+
     </script>
 </body>
 </html>
