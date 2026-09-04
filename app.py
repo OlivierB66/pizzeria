@@ -81,23 +81,16 @@ with app.app_context():
 # Middleware : vérifier IP
 @app.before_request
 def check_ip():
-   ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr)
     if ip:
         ip = ip.split(',')[0].strip()
     
-    # Récupérer HOME_IP et le parser en liste d'IPs
-    home_ips_str = os.getenv('HOME_IP', '')
-    home_ips = [h.strip() for h in home_ips_str.split(';') if h.strip()]
+    home_ip = os.getenv('HOME_IP', '')
     
-    print(f"DEBUG: IP={ip}, HOME_IPS={home_ips}")
+    print(f"DEBUG: IP={ip}, HOME_IP={home_ip}, Match={ip.startswith(home_ip)}")
     
-    # Vérifier si l'IP fait partie de l'une des listes autorisées
-    ip_autorisee = (
-        any(ip.startswith(allowed) for allowed in ['127.0.0.1', '192.168.1.'])
-        or any(ip.startswith(home_ip) for home_ip in home_ips)
-    )
-    
-    if not ip_autorisee:
+    if not (any(ip.startswith(allowed) for allowed in ['127.0.0.1', '192.168.1.']) 
+            or (home_ip and ip.startswith(home_ip))):
         print(f"DEBUG: Blocage pour {ip}")
         return jsonify({'erreur': 'Accès non autorisé'}), 403
 # --- ROUTES PRINCIPALES ---
