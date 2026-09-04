@@ -15,7 +15,7 @@ load_dotenv()
 DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///pizzas.db')
 
 # Récupérer la HOME_IP depuis les variables d'env
-HOME_IP = os.getenv('HOME_IP', '')
+#HOME_IP = os.getenv('HOME_IP', '')
 
 # Forcer psycopg (v3) au lieu de psycopg2
 if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
@@ -85,12 +85,19 @@ def check_ip():
     if ip:
         ip = ip.split(',')[0].strip()
     
-    home_ip = os.getenv('HOME_IP', '')
+    # Récupérer HOME_IP et le parser en liste d'IPs
+    home_ips_str = os.getenv('HOME_IP', '')
+    home_ips = [h.strip() for h in home_ips_str.split(';') if h.strip()]
     
-    print(f"DEBUG: IP={ip}, HOME_IP={home_ip}, Match={ip.startswith(home_ip)}")
+    print(f"DEBUG: IP={ip}, HOME_IPS={home_ips}")
     
-    if not (any(ip.startswith(allowed) for allowed in ['127.0.0.1', '192.168.1.']) 
-            or (home_ip and ip.startswith(home_ip))):
+    # Vérifier si l'IP fait partie de l'une des listes autorisées
+    ip_autorisee = (
+        any(ip.startswith(allowed) for allowed in ['127.0.0.1', '192.168.1.'])
+        or any(ip.startswith(home_ip) for home_ip in home_ips)
+    )
+    
+    if not ip_autorisee:
         print(f"DEBUG: Blocage pour {ip}")
         return jsonify({'erreur': 'Accès non autorisé'}), 403
 # --- ROUTES PRINCIPALES ---
