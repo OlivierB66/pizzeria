@@ -68,11 +68,19 @@ with app.app_context():
     # Ajouter les ingrédients par défaut
     if Ingredient.query.count() == 0:
         ingredients_default = [
-            ('Oignons', 'https://images.unsplash.com/photo-1588195538326-c5b1e9f80a1b?w=200&h=200&fit=crop', '#FFC107'),
-            ('Jambon', 'https://images.unsplash.com/photo-1628840042765-356cda07f4ee?w=200&h=200&fit=crop', '#FF6B6B'),
-            ('Mozzarella', 'https://images.unsplash.com/photo-1452894896566-922e9cd1a51c?w=200&h=200&fit=crop', '#FFFFFF'),
-            ('Champignons', 'https://images.unsplash.com/photo-1545069975-85b100854f27?w=200&h=200&fit=crop', '#795548'),
-            ('Olives', 'https://images.unsplash.com/photo-1599599810694-a5e1ba78b5dc?w=200&h=200&fit=crop', '#424242')
+            ('Jambon', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRYojxeVse7As-p9kcLwBCA6aQ-yTpJOMH1wEfeTUiq4w&s=10', '#ff8c82'),
+            ('Mozzarella', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTXoNi-O7pYjugIv0VMXc2LFch85JX6RX18ECCiZfldYQ&s=10', '#ebebeb'),
+            ('Champignons', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcToZT2Hz8y8ztjP09PyPqtPRxzNL0016xpdgvouff1eXA&s=10', '#795548'),
+            ('Olives', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ4brQVvDB3D3mDYOG58VrV-ORTh-72bteIb2qQ5FuafQ&s=10', '#424242'),
+            ('Oeuf', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQUl7FXtNoj2CinComqALbYfAuV1rpXYrD07D50r35hYQ&s=10', '#fffb00'),
+            ('Viande hachée', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTGrjD_ay99e6Yhg91WhruZuu6Qo-Gw6Jr9VHW18s5cJQ&s=10', '#ff4013'),
+            ('Boursin', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmfdt6o1vE4HnA60Ma4NOdDuZRrID15CZyIkQwrnmR4w&s=10', '#ff9800'),
+            ('Burrata', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT9ztfr3plXSU49Hz2l74cKBkk4TUYrfugTkKQJOvPoOw&s=10', '#ebebeb'),
+            ('Mortadelle', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQl1XJFXlXSIswaBkQq4DXBkdE1d32Ft-T_kd_-hSvkxw&s=10', '#ff9800'),
+            ('Jambon rouge', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQY4vOoa7G7IjW5ma7jki9MsUViYnZ0KsYVfFvR6hgfYA&s=10', '#ff2600'),
+            ('Oignons rouge', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRVJNfy9cqQidjf2RSMQoP-wCdxq93Tz6DaqD2aPRox9g&s=10', '#ff2600'),
+            ('Saumon', 'https://media.istockphoto.com/id/179247374/fr/photo/frais-et-saumon-fumé.jpg?s=612x612&w=0&k=20&c=4fKhBE-vieNl1fuArvOY9t3TUcPlI4y0CHB3Zvmd-Ww=', '#ff9800'),
+            ('Oignons jaune', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQkWUAQKIlN5T9jaOv6gWRFaQ5s_rJp85YMo52n2IQoTg&s=10', '#c4bc00')
         ]
         for nom, url, color in ingredients_default:
             db.session.add(Ingredient(nom=nom, image_url=url, color=color, disponible=1))
